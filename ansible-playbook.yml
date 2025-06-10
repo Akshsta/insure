@@ -1,0 +1,68 @@
+- name: Configure Docker and Deploy Dev/Test/Prod Containers
+  hosts: all-in-one
+  become: true
+  vars:
+    app_image: akku1999/insure-me:3.0
+  tasks:
+    - name: Ensure APT cache is updated
+      apt:
+        update_cache: yes
+
+    - name: Install prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release | lower }} stable"
+        state: present
+        filename: docker
+
+    - name: Update APT after adding Docker repo
+      apt:
+        update_cache: yes
+
+    - name: Install Docker CE and components
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: latest
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Enable and start Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Run Dev container
+      command: docker run -itd -p 8081:8080 --name insure-dev {{ app_image }}
+      ignore_errors: yes
+
+    - name: Run Test container
+      command: docker run -itd -p 8082:8080 --name insure-test {{ app_image }}
+      ignore_errors: yes
+
+    - name: Run Prod container
+      command: docker run -itd -p 8083:8080 --name insure-prod {{ app_image }}
+      ignore_errors: yes
+
